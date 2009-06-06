@@ -60,7 +60,7 @@ module AdvFileUtils
 
   # Method for internal use to intercept write calls when we are being verbose.
   def hook_write (object, filename, tail_msg = nil)    #:nodoc:
-    object.instance_eval <<-__EOM__, __FILE__, __LINE__
+    object.instance_eval <<-__EOM__, __FILE__, __LINE__ + 1
       class << self
         def write (data, *args)
             $stderr.puts AdvFileUtils.write_echo_message(data, '>>', #{filename.inspect})
@@ -138,14 +138,27 @@ module AdvFileUtils
     generic_write 'a', filename, *data_and_options, &block
   end
   module_function :append
+  public :append
 
   OPT_TABLE['append'] = [:verbose, :noop, :force, :preserve]
 
 
+  #
+  # Options: verbose, noop, force, preserve
+  #
+  # Replace the given +data+ in the file named by +filename+.
+  #
+  # If called with a block then the File object is yielded to the block
+  # for writing data intead of the data being passed as an argument.
+  #
+  #   AdvFileUtils.truncate('data.log', "some data\n")
+  #   AdvFileUtils.truncate('data.log') { |f| f.puts "some data" }
+  #
   def truncate (filename, *data_and_options, &block)
     generic_write 'w', filename, *data_and_options, &block
   end
   module_function :truncate
+  public :truncate
 
   OPT_TABLE['truncate'] = [:verbose, :noop, :force, :preserve]
 

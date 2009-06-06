@@ -88,7 +88,7 @@ describe AdvFileUtils do
   end
 
 
-  describe ".trucate" do
+  describe ".truncate" do
     before :each do
       @file = Tempfile.new File.basename($0)
       @file.close
