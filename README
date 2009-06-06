@@ -1,0 +1,41 @@
+AdvFileUtils is a collection of advanced file utilities for Ruby scripts.
+
+It is presently incomplete.  Only append and truncate are partially
+implemented so far -- those functions work with :noop and :verbose but
+the :force and :preserve options do nothing.
+
+The particular collection of available functions is also in flux.  Some
+may even be spun out into other libraries.
+
+# Copyright (c) 2009 Michael H. Buselli
+#
+# This program is free software.
+# You can distribute/modify this program under the same terms of Ruby.
+#
+# == module AdvFileUtils
+#
+# Advanced FileUtils contains more methods you might have wished were in
+# FileUtils.
+#
+# === Module Functions
+#
+#   append(filename, data, options)
+#   append(filename, options) {|file| .... }
+#   truncate(filename, options)
+#   truncate(filename, data, options)
+#   truncate(filename, options) {|file| .... }
+#   insert(filename, data, options)             # :line => 7
+#   insert(filename, options) {|file| .... }
+#   update(filename, data, options)             # :line => 7
+#   update(filename, options) {|file| .... }    # :lines => 7..10
+#                                               # :separator => ':'
+#                                               # :where => '$1 = mbuselli'
+#   edit(filename, options)                     # :visual => true
+#   edit(filename, data, options)
+#   system(command_list, options)
+#   shell(command_list, options)                # alias of system
+#   sh(command_list, options)                   # alias of system
+#   sudo(command_list, options)                 # :runas => 0
+#
+#   Something to do "atomic" file changes.
+#
