@@ -2,24 +2,9 @@
 require 'rake/gempackagetask'
 require 'spec/rake/spectask'
 
-spec = Gem::Specification.new do |s|
-  s.name = "advanced-fileutils"
-  s.version = "0.0.1"
-  s.author = "Michael H Buselli"
-  s.add_dependency("escape", ">= 0.0.4")
-  s.email = ["cosine@cosine.org", "michael@buselli.com"]
-  s.files = Dir["lib/**/*"]
-  s.require_path = "lib"
-  s.has_rdoc = true
-  s.rubyforge_project = "advanced-fileutils"
-  s.homepage = "http://cosine.org/ruby/advanced-fileutils/"
-
-  s.summary = "Advanced FileUtils contains more methods you might have wished were in FileUtils."
-
-  s.description = <<-__EOF__
-    Advanced FileUtils contains more methods you might have wished were in FileUtils.
-  __EOF__
-end
+gemspec_file = 'advanced-fileutils.gemspec'
+spec = nil
+eval File.read(gemspec_file), binding, gemspec_file, 1
 
 
 Rake::GemPackageTask.new(spec) {}
