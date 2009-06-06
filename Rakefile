@@ -10,7 +10,7 @@ spec = Gem::Specification.new do |s|
   s.email = ["cosine@cosine.org", "michael@buselli.com"]
   s.files = Dir["lib/**/*"]
   s.require_path = "lib"
-  s.has_rdoc = false
+  s.has_rdoc = true
   s.rubyforge_project = "advanced-fileutils"
   s.homepage = "http://cosine.org/ruby/advanced-fileutils/"
 
