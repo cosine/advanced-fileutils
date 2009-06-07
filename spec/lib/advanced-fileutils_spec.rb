@@ -1,5 +1,5 @@
 require './spec/spec_helper.rb'
-require './lib/advanced-fileutils.rb'
+require 'advanced-fileutils'
 require 'tempfile'
 
 
@@ -237,10 +237,9 @@ describe AdvFileUtils do
 
 
   describe ".edit" do
-    RESET_ENV = ['VISUAL', 'EDITOR', 'TEST_DIE_ON_SIGNAL']
-
     before :all do
       @editor_file = Tempfile.new File.basename($0)
+      @editor_file.close
       @editor = @editor_file.path
       AdvFileUtils.truncate(@editor, <<-__EOF__.gsub(/^.{8}/, ''))
         #!/usr/bin/env ruby
@@ -256,7 +255,8 @@ describe AdvFileUtils do
 
       FileUtils.chmod(0700, @editor)
       @saved_env = {}
-      RESET_ENV.each {|var| @saved_env[var] = ENV[var] }
+      @reset_vars = ['VISUAL', 'EDITOR', 'TEST_DIE_ON_SIGNAL']
+      @reset_vars.each {|var| @saved_env[var] = ENV[var] }
     end
 
     after :all do
@@ -269,7 +269,7 @@ describe AdvFileUtils do
     end
 
     after :each do
-      RESET_ENV.each {|var| ENV[var] = @saved_env[var] }
+      @reset_vars.each {|var| ENV[var] = @saved_env[var] }
     end
 
     it "should invoke an external editor on the file" do
@@ -278,19 +278,19 @@ describe AdvFileUtils do
     end
 
     it "should return true if successful with new data in file" do
-      sleep 1.02
+      sleep 1.02    # sleep so that mtime increments
       AdvFileUtils.edit(@path).should be_true
     end
 
     it "should return nil if the user did not save any data" do
       ENV['VISUAL'] = 'true'
-      sleep 1.02
+      sleep 1.02    # sleep so that mtime increments
       AdvFileUtils.edit(@path).should be_nil
     end
 
     it "should return false if the user saved the original data to the file" do
       ENV['VISUAL'] = 'touch'
-      sleep 1.02
+      sleep 1.02    # sleep so that mtime increments
       AdvFileUtils.edit(@path).should be_false
     end
 
@@ -316,24 +316,33 @@ describe AdvFileUtils do
 
     it "should not edit the file if the editor cannot be launched" do
       ENV['VISUAL'] = 'foo-bar-baz'
-      AdvFileUtils.edit(@path) rescue nil
+      begin
+        AdvFileUtils.edit(@path)
+      rescue AdvFileUtils::CommandError
+      end
       File.read(@path).should == "foo bar\n"
     end
 
     it "should not edit the file if the editor exists with non-zero code" do
       ENV['VISUAL'] = 'false'
-      AdvFileUtils.edit(@path) rescue nil
+      begin
+        AdvFileUtils.edit(@path)
+      rescue AdvFileUtils::CommandError
+      end
       File.read(@path).should == "foo bar\n"
     end
 
     it "should not edit the file if the editor dies on a signal" do
       ENV['TEST_DIE_ON_SIGNAL'] = '1'
-      AdvFileUtils.edit(@path) rescue nil
+      begin
+        AdvFileUtils.edit(@path)
+      rescue AdvFileUtils::CommandError
+      end
       File.read(@path).should == "foo bar\n"
     end
 
     it "should print the editor command if :verbose is true" do
-      $stderr.should_receive(:puts).with("#{@editor} #{@file}")
+      $stderr.should_receive(:puts).with("#{@editor} #{@path}")
       AdvFileUtils.edit(@path, :verbose => true)
     end
 
@@ -345,23 +354,27 @@ describe AdvFileUtils do
     it "should run the editor in the VISUAL environment variable if set" do
       ENV['VISUAL'] = 'from-visual'
       Kernel.should_receive(:system).with('from-visual', @path)
+      AdvFileUtils.edit(@path)
     end
 
     it "should run the editor in the EDITOR environment variable if VISUAL is not set" do
       ENV.delete 'VISUAL'
       ENV['EDITOR'] = 'from-editor'
       Kernel.should_receive(:system).with('from-editor', @path)
+      AdvFileUtils.edit(@path)
     end
 
     it "should not run the editor in the EDITOR environment variable if VISUAL is set" do
       ENV['EDITOR'] = 'from-editor'
       Kernel.should_not_receive(:system).with('from-editor', @path)
+      AdvFileUtils.edit(@path)
     end
 
     it "should run \"vi\" if VISUAL and EDITOR are not set" do
       ENV.delete 'VISUAL'
       ENV.delete 'EDITOR'
       Kernel.should_receive(:system).with('vi', @path)
+      AdvFileUtils.edit(@path)
     end
   end
 end

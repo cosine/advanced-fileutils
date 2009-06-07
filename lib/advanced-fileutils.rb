@@ -82,7 +82,16 @@ module AdvFileUtils
 
 
   def parse_data_and_options (data_and_options)         #:nodoc#
-    data, options = *data_and_options
+    if data_and_options.size == 1
+      if data_and_options[0].respond_to? :has_key?
+        options = data_and_options[0]
+      else
+        data = data_and_options[0]
+      end
+    else
+      data, options = *data_and_options
+    end
+
     data ||= ''
     options ||= {}
     [data, options]
@@ -248,7 +257,10 @@ module AdvFileUtils
     system(editor, filename, options)
     proc_status = $?
 
-    if proc_status.success?
+    if options[:noop]
+      return true
+
+    elsif proc_status.success?
       return nil if file_stat == File.stat(filename)
       return false if file_checksum == SHA1.file(filename)
       return true

@@ -1,6 +1,6 @@
 spec = Gem::Specification.new do |s|
   s.name = "advanced-fileutils"
-  s.version = "0.0.1"
+  s.version = "0.0.2"
   s.author = "Michael H Buselli"
   s.add_dependency("escape", ">= 0.0.4")
   s.email = ["cosine@cosine.org", "michael@buselli.com"]
