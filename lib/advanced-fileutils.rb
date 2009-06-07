@@ -34,9 +34,14 @@
 #   Something to do "atomic" file changes.
 #
 
+require 'sha1'
 require 'escape'
 
 module AdvFileUtils
+
+  class Error < Exception; end
+  class CommandError < AdvFileUtils::Error; end
+
 
   # Hash table to hold command options.
   OPT_TABLE = {}        #:nodoc: internal use only
@@ -56,6 +61,7 @@ module AdvFileUtils
     ].join(' ')
   end
   module_function :write_echo_message
+  private_class_method :write_echo_message
 
 
   # Method for internal use to intercept write calls when we are being verbose.
@@ -63,7 +69,7 @@ module AdvFileUtils
     object.instance_eval <<-__EOM__, __FILE__, __LINE__ + 1
       class << self
         def write (data, *args)
-            $stderr.puts AdvFileUtils.write_echo_message(data, '>>', #{filename.inspect})
+            $stderr.puts AdvFileUtils.__send__(:write_echo_message, data, '>>', #{filename.inspect})
             super
           ensure
             send #{tail_msg.inspect} if #{tail_msg.inspect}
@@ -73,7 +79,16 @@ module AdvFileUtils
   end
   module_function :hook_write
   private_class_method :hook_write
-  #private :hook_write
+
+
+  def parse_data_and_options (data_and_options)         #:nodoc#
+    data, options = *data_and_options
+    data ||= ''
+    options ||= {}
+    [data, options]
+  end
+  module_function :parse_data_and_options
+  private_class_method :parse_data_and_options
 
 
   #
@@ -100,15 +115,13 @@ module AdvFileUtils
       end
 
     else
-      data, options = *data_and_options
-      data ||= ''
-      options ||= {}
+      data, options = *parse_data_and_options(data_and_options)
 
       if options[:verbose]
         if open_arg == 'w'
-          $stderr.puts AdvFileUtils.write_echo_message(data, '>', filename)
+          $stderr.puts AdvFileUtils.__send__(:write_echo_message, data, '>', filename)
         else
-          $stderr.puts AdvFileUtils.write_echo_message(data, '>>', filename)
+          $stderr.puts AdvFileUtils.__send__(:write_echo_message, data, '>>', filename)
         end
       end
 
@@ -124,7 +137,7 @@ module AdvFileUtils
 
 
   #
-  # Options: verbose, noop, force, preserve
+  # Options: verbose, noop, force, backup
   #
   # Append the given +data+ to the file named by +filename+.
   #
@@ -140,11 +153,11 @@ module AdvFileUtils
   module_function :append
   public :append
 
-  OPT_TABLE['append'] = [:verbose, :noop, :force, :preserve]
+  OPT_TABLE['append'] = [:verbose, :noop, :force, :backup]
 
 
   #
-  # Options: verbose, noop, force, preserve
+  # Options: verbose, noop, force, backup
   #
   # Replace the given +data+ in the file named by +filename+.
   #
@@ -160,10 +173,95 @@ module AdvFileUtils
   module_function :truncate
   public :truncate
 
-  OPT_TABLE['truncate'] = [:verbose, :noop, :force, :preserve]
+  OPT_TABLE['truncate'] = [:verbose, :noop, :force, :backup]
 
 
-  def system (*command)
+  #
+  # Options: verbose, noop
+  #
+  # An alternative to Kernel.system that accepts options for verbosity
+  # and dry runs.
+  #
+  def system (*command_and_options)
+    if command_and_options[-1].respond_to?(:has_key?)
+      command = command_and_options[0...-1]
+      options = command_and_options[-1]
+    else
+      command = command_and_options
+      options = {}
+    end
+
+    raise ArgumentError.new('wrong number of arguments') if command.empty?
+
+    if options[:verbose]
+      if command.size == 1
+        $stderr.puts command[0]
+      else
+        $stderr.puts command.collect { |word|
+          Escape.shell_single_word word
+        }.join(' ')
+      end
+    end
+
+    if not options[:noop]
+      Kernel.system(*command)
+    end
   end
-end
+  module_function :system
+  public :system
 
+  alias sh system
+  module_function :sh
+  public :sh
+
+  alias shell system
+  module_function :shell
+  public :shell
+
+  OPT_TABLE['sh'] = OPT_TABLE['shell'] =
+  OPT_TABLE['system'] = [:verbose, :noop]
+
+
+  #
+  # Options: verbose, noop, force, backup
+  #
+  # Invoke an external editor to edit some text or a file.
+  #
+  #   edit(filename, options)
+  #   edit(filename, data, options)
+  #   edit(nil, data, options)
+  #
+  # Return values
+  #
+  #   true, if successful and file was edited
+  #   false, if successful and file was not edited
+  #   nil, if successful and file was not saved
+  #
+  def edit (filename, *data_and_options)
+    data, options = *parse_data_and_options(data_and_options)
+    editor =
+        ENV.has_key?('VISUAL') ? ENV['VISUAL'] :
+        ENV.has_key?('EDITOR') ? ENV['EDITOR'] : 'vi'
+
+    file_stat = File.stat(filename)
+    file_checksum = SHA1.file(filename)
+    system(editor, filename, options)
+    proc_status = $?
+
+    if proc_status.success?
+      return nil if file_stat == File.stat(filename)
+      return false if file_checksum == SHA1.file(filename)
+      return true
+
+    elsif proc_status.signaled?
+      raise AdvFileUtils::CommandError.new("editor terminated on signal #{proc_status.termsig}")
+
+    else
+      raise AdvFileUtils::CommandError.new("editor had non-zero exit code #{proc_status.exitstatus}")
+    end
+  end
+  module_function :edit
+  public :edit
+
+  OPT_TABLE['edit'] = [:verbose, :noop, :force, :backup]
+end
