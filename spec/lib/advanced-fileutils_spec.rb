@@ -377,4 +377,89 @@ describe AdvFileUtils do
       AdvFileUtils.edit(@path)
     end
   end
+
+
+  describe ".replace" do
+    it "should overwrite an empty file" do
+      AdvFileUtils.replace(@path, "foo bar\n")
+      File.read(@path).should == "foo bar\n"
+    end
+
+    it "should replace the file every time it is called" do
+      AdvFileUtils.replace(@path, "foo bar\n")
+      AdvFileUtils.replace(@path, "bar baz\n")
+      File.read(@path).should == "bar baz\n"
+    end
+
+    it "should empty the file contents if called without data" do
+      AdvFileUtils.replace(@path, "foo bar\n")
+      AdvFileUtils.replace(@path)
+      File.read(@path).should == ""
+    end
+
+    it "should create a new file if it doesn't exist" do
+      @file.delete
+      File.exists?(@path).should be_false
+      AdvFileUtils.replace(@path, "foo bar\n")
+      File.read(@path).should == "foo bar\n"
+    end
+
+    it "should write data from a block" do
+      AdvFileUtils.replace(@path) { |f| f.puts "foo bar" }
+      File.read(@path).should == "foo bar\n"
+    end
+
+    it "should not write to a file if passed :noop" do
+      AdvFileUtils.replace(@path, "foo bar\n", :noop => true)
+      File.read(@path).should == ""
+    end
+
+    it "should not overwrite data if passed :noop" do
+      AdvFileUtils.replace(@path, "foo bar\n")
+      AdvFileUtils.replace(@path, "bar baz\n", :noop => true)
+      File.read(@path).should == "foo bar\n"
+    end
+
+    it "should not write to a file if passed :noop and a block" do
+      AdvFileUtils.replace(@path, :noop => true) { |f| f.puts "foo bar" }
+      File.read(@path).should == ""
+    end
+
+    it "should emit verbose data if passed :verbose" do
+      $stderr.should_receive(:puts).with("echo 'foo bar' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+      AdvFileUtils.replace(@path, "foo bar\n", :verbose => true)
+    end
+
+    it "should emit verbose data if passed :verbose and a block" do
+      $stderr.should_receive(:puts).with("cat /dev/null > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("echo 'foo bar' >> #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+      AdvFileUtils.replace(@path, :verbose => true) { |f| f.print "foo bar\n" }
+    end
+
+    it "should emit verbose data for each write if passed :verbose and a block" do
+      $stderr.should_receive(:puts).with("cat /dev/null > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("echo 'foo bar' >> #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("echo 'bar baz' >> #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+
+      AdvFileUtils.replace(@path, :verbose => true) do |f|
+        f.print "foo bar\n"
+        f.print "bar baz\n"
+      end
+    end
+
+    it "should emit verbose data differently for data without a newline" do
+      $stderr.should_receive(:puts).with("echo 'foo bar\\c' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+      AdvFileUtils.replace(@path, "foo bar", :verbose => true)
+    end
+
+    it "should emit verbose data if passed :verbose and :noop" do
+      $stderr.should_receive(:puts).with("echo 'foo bar' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+      AdvFileUtils.replace(@path, "foo bar\n", :noop => true, :verbose => true)
+    end
+  end
 end

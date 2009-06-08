@@ -298,7 +298,7 @@ module AdvFileUtils
   # Edit a file, but open a temporary lockfile instead and move it in place
   # after editting is complete.
   #
-  def atomic_open (filename, *data_and_options)
+  def replace (filename, *data_and_options)
     data, options = *parse_data_and_options(data_and_options)
     lockfile = options[:lockfile] ? options[:lockfile] : "#{filename}.lock"
 
@@ -308,15 +308,16 @@ module AdvFileUtils
 
       IO.open(fd, 'w') do |f|
         if block_given?
+          hook_write(f, lockfile) if options[:verbose]
           yield f
         else
           f.write(data)
         end
       end
 
-      File.chown(file_stat.uid, file_stat.gid, lockfile)
-      File.chmod(file_stat.mode & 07777, lockfile)
-      File.rename(lockfile, filename)
+      FileUtils.chown(file_stat.uid, file_stat.gid, lockfile, options)
+      FileUtils.chmod(file_stat.mode & 07777, lockfile, options)
+      FileUtils.mv(lockfile, filename, options)
     ensure
       begin
         File.delete(lockfile) if fd
@@ -324,4 +325,8 @@ module AdvFileUtils
       end
     end
   end
+  module_function :replace
+  public :replace
+
+  OPT_TABLE['replace'] = [:verbose, :noop, :force, :backup, :lockfile, :retry]
 end
