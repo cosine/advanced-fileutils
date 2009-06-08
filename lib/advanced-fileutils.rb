@@ -39,8 +39,22 @@ require 'escape'
 
 module AdvFileUtils
 
+  #
+  # A superclass of all errors that can be raised from this module's
+  # functions.
+  #
   class Error < Exception; end
+
+  #
+  # CommandError is raised when an external command has a problem.
+  #
   class CommandError < AdvFileUtils::Error; end
+
+  #
+  # FileLockError is raised when trying to open an agreed upon "lockfile"
+  # and the file already exists.
+  #
+  class FileLockError < AdvFileUtils::Error; end
 
 
   # Hash table to hold command options.
@@ -276,4 +290,38 @@ module AdvFileUtils
   public :edit
 
   OPT_TABLE['edit'] = [:verbose, :noop, :force, :backup]
+
+
+  #
+  # Options: verbose, noop, force, backup, lockfile, retry
+  #
+  # Edit a file, but open a temporary lockfile instead and move it in place
+  # after editting is complete.
+  #
+  def atomic_open (filename, *data_and_options)
+    data, options = *parse_data_and_options(data_and_options)
+    lockfile = options[:lockfile] ? options[:lockfile] : "#{filename}.lock"
+
+    begin
+      fd = IO.sysopen(lockfile, IO::WRONLY | IO::CREAT | IO::EXCL | IO::LOCK_EX, 0700)
+      file_stat = File.stat(filename)
+
+      IO.open(fd, 'w') do |f|
+        if block_given?
+          yield f
+        else
+          f.write(data)
+        end
+      end
+
+      File.chown(file_stat.uid, file_stat.gid, lockfile)
+      File.chmod(file_stat.mode & 07777, lockfile)
+      File.rename(lockfile, filename)
+    ensure
+      begin
+        File.delete(lockfile) if fd
+      rescue Errno::ENOENT
+      end
+    end
+  end
 end
