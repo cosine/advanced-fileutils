@@ -1,12 +1,29 @@
-AdvFileUtils is a collection of advanced file utilities for Ruby scripts.
+AdvFileUtils is a collection of advanced file utilities for Ruby
+scripts.
 
-It is presently incomplete.  Only append and truncate are partially
-implemented so far -- those functions work with :noop and :verbose but
-the :force and :preserve options do nothing.
+It is presently incomplete.  Those methods already implemented are
+listed below without an "x_" prefix, but among their options will only
+acknowledge :noop and :verbose so far.
 
 The particular collection of available functions is also in flux.  Some
 may even be spun out into other libraries.
 
+    append          Quickly append data to a file.
+    truncate        Works like #append but truncates the file when opening.
+    replace         Works like #truncate but writes to lockfile then replaces.
+    edit            Invokes external editor, such as vi, to edit a file.
+    system          Runs an external command (more verbose than Kernel.system).
+
+    shell           An alias for system.
+    sh              An alias for system.
+
+If 'advanced-fileutils' is required, then the methods are available at
+AdvFileUtils.method_name.  If 'fileutils/advanced' is required instead,
+then the methods can also be called at FileUtils.method_name.
+
+#
+# = advanced-fileutils.rb
+#
 # Copyright (c) 2009 Michael H. Buselli
 #
 # This program is free software.
@@ -24,10 +41,12 @@ may even be spun out into other libraries.
 #   truncate(filename, options)
 #   truncate(filename, data, options)
 #   truncate(filename, options) {|file| .... }
-#   insert(filename, data, options)             # :line => 7
-#   insert(filename, options) {|file| .... }
-#   update(filename, data, options)             # :line => 7
-#   update(filename, options) {|file| .... }    # :lines => 7..10
+#   replace(filename, data, options)            # does "atomic" file change
+#   replace(filename, options) {|file| .... }
+# x_insert(filename, data, options)             # :line => 7
+# x_insert(filename, options) {|file| .... }
+# x_update(filename, data, options)             # :line => 7
+# x_update(filename, options) {|file| .... }    # :lines => 7..10
 #                                               # :separator => ':'
 #                                               # :where => '$1 = mbuselli'
 #   edit(filename, options)                     # :visual => true
@@ -35,7 +54,7 @@ may even be spun out into other libraries.
 #   system(command_list, options)
 #   shell(command_list, options)                # alias of system
 #   sh(command_list, options)                   # alias of system
-#   sudo(command_list, options)                 # :runas => 0
+# x_sudo(command_list, options)                 # :runas => 0
 #
-#   Something to do "atomic" file changes.
+# Many options are not implemented yet.
 #

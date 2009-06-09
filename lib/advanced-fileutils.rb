@@ -18,10 +18,12 @@
 #   truncate(filename, options)
 #   truncate(filename, data, options)
 #   truncate(filename, options) {|file| .... }
-#   insert(filename, data, options)             # :line => 7
-#   insert(filename, options) {|file| .... }
-#   update(filename, data, options)             # :line => 7
-#   update(filename, options) {|file| .... }    # :lines => 7..10
+#   replace(filename, data, options)            # does "atomic" file change
+#   replace(filename, options) {|file| .... }
+# x_insert(filename, data, options)             # :line => 7
+# x_insert(filename, options) {|file| .... }
+# x_update(filename, data, options)             # :line => 7
+# x_update(filename, options) {|file| .... }    # :lines => 7..10
 #                                               # :separator => ':'
 #                                               # :where => '$1 = mbuselli'
 #   edit(filename, options)                     # :visual => true
@@ -29,9 +31,9 @@
 #   system(command_list, options)
 #   shell(command_list, options)                # alias of system
 #   sh(command_list, options)                   # alias of system
-#   sudo(command_list, options)                 # :runas => 0
+# x_sudo(command_list, options)                 # :runas => 0
 #
-#   Something to do "atomic" file changes.
+# Many options are not implemented yet.
 #
 
 require 'sha1'
@@ -303,22 +305,35 @@ module AdvFileUtils
     lockfile = options[:lockfile] ? options[:lockfile] : "#{filename}.lock"
 
     begin
-      fd = IO.sysopen(lockfile, IO::WRONLY | IO::CREAT | IO::EXCL | IO::LOCK_EX, 0700)
-      file_stat = File.stat(filename)
-
-      IO.open(fd, 'w') do |f|
-        if block_given?
-          hook_write(f, lockfile) if options[:verbose]
-          yield f
-        else
-          f.write(data)
-        end
+      if not options[:noop]
+        fd = IO.sysopen(lockfile, IO::WRONLY | IO::CREAT | IO::EXCL, 0700)
+        f = IO.new(fd, 'w')
+        hook_write(f, lockfile) if block_given? and options[:verbose]
+      else
+        f = StringIO.new
+        hook_write(f, lockfile, :rewind) if block_given? and options[:verbose]
       end
 
-      FileUtils.chown(file_stat.uid, file_stat.gid, lockfile, options)
-      FileUtils.chmod(file_stat.mode & 07777, lockfile, options)
+      file_stat = File.stat(filename) rescue nil
+
+      if block_given?
+        $stderr.puts "cat /dev/null > #{Escape.shell_single_word(lockfile)}" if options[:verbose]
+        yield f
+      else
+        $stderr.puts AdvFileUtils.__send__(:write_echo_message, data, '>', lockfile) if options[:verbose]
+        f.write(data)
+      end
+
+      f.close
+
+      if file_stat
+        FileUtils.chown(file_stat.uid.to_s, file_stat.gid.to_s, lockfile, options)
+        FileUtils.chmod(file_stat.mode & 07777, lockfile, options)
+      end
       FileUtils.mv(lockfile, filename, options)
+
     ensure
+      f.close if f and not f.closed?
       begin
         File.delete(lockfile) if fd
       rescue Errno::ENOENT

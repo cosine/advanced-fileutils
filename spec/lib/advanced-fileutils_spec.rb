@@ -427,6 +427,8 @@ describe AdvFileUtils do
 
     it "should emit verbose data if passed :verbose" do
       $stderr.should_receive(:puts).with("echo 'foo bar' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chown #{Process.uid}:#{Process.gid} #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chmod 600 #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
       AdvFileUtils.replace(@path, "foo bar\n", :verbose => true)
     end
@@ -434,6 +436,8 @@ describe AdvFileUtils do
     it "should emit verbose data if passed :verbose and a block" do
       $stderr.should_receive(:puts).with("cat /dev/null > #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("echo 'foo bar' >> #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chown #{Process.uid}:#{Process.gid} #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chmod 600 #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
       AdvFileUtils.replace(@path, :verbose => true) { |f| f.print "foo bar\n" }
     end
@@ -442,6 +446,8 @@ describe AdvFileUtils do
       $stderr.should_receive(:puts).with("cat /dev/null > #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("echo 'foo bar' >> #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("echo 'bar baz' >> #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chown #{Process.uid}:#{Process.gid} #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chmod 600 #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
 
       AdvFileUtils.replace(@path, :verbose => true) do |f|
@@ -452,14 +458,42 @@ describe AdvFileUtils do
 
     it "should emit verbose data differently for data without a newline" do
       $stderr.should_receive(:puts).with("echo 'foo bar\\c' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chown #{Process.uid}:#{Process.gid} #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chmod 600 #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
       AdvFileUtils.replace(@path, "foo bar", :verbose => true)
     end
 
     it "should emit verbose data if passed :verbose and :noop" do
       $stderr.should_receive(:puts).with("echo 'foo bar' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chown #{Process.uid}:#{Process.gid} #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chmod 600 #{@path}.lock").ordered
       $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
       AdvFileUtils.replace(@path, "foo bar\n", :noop => true, :verbose => true)
+    end
+
+    it "should emit verbose data if passed :verbose and :noop and a block" do
+      $stderr.should_receive(:puts).with("cat /dev/null > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("echo 'foo bar' >> #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chown #{Process.uid}:#{Process.gid} #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("chmod 600 #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+
+      AdvFileUtils.replace(@path, :noop => true, :verbose => true) do |f|
+        f.print "foo bar\n"
+      end
+    end
+
+    it "should emit verbose data if passed :verbose and a non-existant file" do
+      $stderr.should_receive(:puts).with("echo 'foo bar' > #{@path}.lock").ordered
+      $stderr.should_receive(:puts).with("mv #{@path}.lock #{@path}").ordered
+
+      $stderr.should_not_receive(:puts).with(/\bchown\b/)
+      $stderr.should_not_receive(:puts).with(/\bchmod\b/)
+
+      @file.delete
+      File.exists?(@path).should be_false
+      AdvFileUtils.replace(@path, "foo bar\n", :verbose => true)
     end
   end
 end
